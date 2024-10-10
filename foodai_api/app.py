@@ -1,77 +1,102 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-import mysql.connector
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_cors import CORS
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Remplacez par une clé secrète
+CORS(app)
 
 # Configuration de la base de données
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'foodai_db'
-}
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:Farel275&@localhost/FoodAI'  # Mettez à jour avec vos identifiants DB
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
 
-# Route pour afficher le formulaire d'inscription
-@app.route('/signup')
+# Modèle User
+class User(db.Model):
+    __tablename__ = 'user'
+    User_id = db.Column(db.Integer, primary_key=True)
+    Name = db.Column(db.String(45))
+    Email = db.Column(db.String(45), unique=True, nullable=False)
+    Password = db.Column(db.String(128), nullable=False)  # Hashed password
+    Goal = db.Column(db.Text)
+    Diet_preference = db.Column(db.Integer)
+    Created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Users(db.Model):
+    __tablename__ = 'users'
+    User_id = db.Column(db.Integer, primary_key=True)
+    Name = db.Column(db.String(45))
+    Email = db.Column(db.String(45), unique=True, nullable=False)
+    Password = db.Column(db.String(128), nullable=False)  # Hashed password
+    Goal = db.Column(db.Text)
+    Diet_preference = db.Column(db.Integer)
+    Created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Route pour la page d'inscription
+@app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    if 'user_id' in session:
-        # Si l'utilisateur est déjà connecté ou enregistré, on le redirige vers la page d'accueil ou tableau de bord
-        return redirect(url_for('dashboard'))  # Changez vers la route appropriée
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        goal = request.form.get('goal')
+        diet_preference = request.form.get('diet_preference')
+
+        # Validation des champs requis
+        if not name or not email or not password:
+            return render_template('signup.html', error="Tous les champs obligatoires doivent être remplis.")
+
+        # Vérification si l'email existe déjà
+        if User.query.filter_by(Email=email).first():
+            return render_template('signup.html', error="L'email existe déjà.")
+
+        # Hashage du mot de passe
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+        # Création d'un nouvel utilisateur
+        new_user = User(Name=name, Email=email, Password=hashed_password, Goal=goal, Diet_preference=diet_preference)
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            return redirect(url_for('login'))  # Rediriger vers la page de connexion après succès
+        except Exception as e:
+            db.session.rollback()
+            return render_template('signup.html', error=f"Erreur de base de données : {str(e)}")
+
+    # Si c'est une requête GET, afficher la page d'inscription
     return render_template('signup.html')
 
-# Route pour traiter le formulaire d'inscription
-@app.route('/signup_process', methods=['POST'])
-def signup_process():
-    email = request.form['email']
-    password = request.form['password']
-
-    # Connexion à la base de données
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-
-    # Vérifier si l'utilisateur existe déjà
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-
-    if user:
-        return "User already exists. Please <a href='/login'>login</a>."
-
-    # Hachage du mot de passe
-    hashed_password = generate_password_hash(password)
-
-    # Insertion des données dans la table users
-    try:
-        cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, hashed_password))
-        conn.commit()
-
-        # Ajouter l'utilisateur à la session pour qu'il soit considéré comme connecté
-        session['user_id'] = cursor.lastrowid
-        return redirect(url_for('dashboard'))
-    except mysql.connector.Error as err:
-        return f"Erreur: {err}"
-    finally:
-        cursor.close()
-        conn.close()
-
-# Route pour afficher la page de connexion
-@app.route('/login')
+# Route pour la page de connexion
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+
+        # Validation des champs requis
+        if not email or not password:
+            return render_template('login.html', error="L'email et le mot de passe sont requis.")
+
+        # Rechercher l'utilisateur par email
+        user = User.query.filter_by(Email=email).first()
+        if not user or not bcrypt.check_password_hash(user.Password, password):
+            return render_template('login.html', error="Email ou mot de passe invalide.")
+
+        # Si les informations sont correctes, rediriger vers la page de succès (ou une autre page)
+        return redirect(url_for('dashboard'))  # Exemple : redirection après connexion réussie
+
+    # Si c'est une requête GET, afficher la page de connexion
     return render_template('login.html')
 
-# Tableau de bord après connexion
+# Route pour le tableau de bord (exemple après connexion)
 @app.route('/dashboard')
 def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return "Bienvenue sur votre tableau de bord !"
-
-# Route pour déconnexion
-@app.route('/logout')
-def logout():
-    session.pop('user_id', None)
-    return redirect(url_for('login'))
+    return "<h1>Bienvenue dans votre tableau de bord !</h1>"
 
 if __name__ == '__main__':
+    with app.app_context():  # Créer un contexte d'application
+        db.create_all()  # Créer les tables de la base de données
     app.run(debug=True)
