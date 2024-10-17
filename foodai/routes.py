@@ -13,10 +13,14 @@ from flask_login import (
 @app.route("/")
 @app.route("/home")
 def home():
-    return render_template("home.html", lessons=lessons, courses=courses)
+    return render_template("home.html")
+
 @app.route("/about")
 def about():
     return render_template("about.html", title="About")
+
+
+    
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
