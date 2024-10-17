@@ -43,7 +43,7 @@ class RegistrationForm(FlaskForm):
         if user:
             raise ValidationError("Email already exists! Please chosse a different one")
 class LoginForm(FlaskForm):
-    email = StringField("Email", validators=[DataRqeuired(), Email()])
+    email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField(
         "Password",
         validators=[
@@ -52,7 +52,7 @@ class LoginForm(FlaskForm):
     )
     remember = BooleanField("Remember Me")
     submit = SubmitField("Log In")
-from frntrek1111111.models import User
+from foodai.models import User
 class RegistrationForm(FlaskForm):
     fname = StringField(
         "First Name", validators=[DataRequired(), Length(min=2, max=25)]
@@ -86,7 +86,7 @@ class RegistrationForm(FlaskForm):
         if user:
             raise ValidationError("Email already exists! Please chosse a different one")
 class LoginForm(FlaskForm):
-    email = StringField("Email", validators=[DataRqeuired(), Email()])
+    email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField(
         "Password",
         validators=[

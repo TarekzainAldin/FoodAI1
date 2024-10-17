@@ -1,6 +1,6 @@
 from foodai.models import User
 from foodai import render_template, url_for, flash, redirect, request
-from foodai.forms import RegistrationForm, LoginForm
+from foodai.form import RegistrationForm, LoginForm
 from foodai import app, bcrypt, db
 from flask_login import (
     login_required,
